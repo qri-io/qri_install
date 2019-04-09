@@ -54,8 +54,8 @@ func BuildWebapp(frontendPath string) (err error) {
 			"node_modules/webpack/bin/webpack",
 			"webpack.config.webapp.prod.js",
 		},
-		dir: frontendPath,
-		env: map[string]string{
+		Dir: frontendPath,
+		Env: map[string]string{
 			"PATH":         path,
 			"NODE_ENV":     "production",
 			"NODE_OPTIONS": "--max_old_space_size=10000",
@@ -73,7 +73,7 @@ func BuildWebapp(frontendPath string) (err error) {
 func npmDoPath(pwd string) (path string, err error) {
 	npmBinPath, err := command{
 		String: "npm bin",
-		dir:    pwd,
+		Dir:    pwd,
 	}.RunStdout()
 
 	if err != nil {

@@ -117,7 +117,7 @@ func BuildQri(platform, arch, qriRepoPath string) (err error) {
 			binPath,
 			qriRepoPath,
 		},
-		env: map[string]string{
+		Env: map[string]string{
 			"GOOS":   platform,
 			"GOARCH": arch,
 			"PATH":   os.Getenv("PATH"),
