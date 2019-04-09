@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -28,16 +28,16 @@ var strEnvFlags = map[string]struct {
 	defaultVal string
 	usage      string
 }{
-	"QRI_BUILD_PLATFORM":      {&platforms, "os", "", "build platforms split with commas (darwin|windows|linux)"},
-	"QRI_BUILD_ARCH":          {&arches, "arch", "", "build architectures split multiples with commas (386|amd64|arm)"},
-	"QRI_BUILD_REPO":          {&repoPath, "qri-repo", "", "path to qri repository"},
-	"QRI_BUILD_FRONTEND_REPO": {&frontendPath, "frontend-repo", "", "path to qri frontend repository"},
-	"QRI_BUILD_TEMPLATES":     {&templatesPath, "templates", "templates", "path to build template files"},
+	"QRI_BUILD_PLATFORM":  {&platforms, "os", "", "build platforms split with commas (darwin|windows|linux)"},
+	"QRI_BUILD_ARCH":      {&arches, "arch", "", "build architectures split multiples with commas (386|amd64|arm)"},
+	"QRI_BUILD_QRI":       {&repoPath, "qri", "", "path to qri repository"},
+	"QRI_BUILD_FRONTEND":  {&frontendPath, "frontend", "", "path to qri frontend repository"},
+	"QRI_BUILD_TEMPLATES": {&templatesPath, "templates", "templates", "path to build template files"},
 }
 
 func init() {
 
-	strEnvFlags["QRI_REPO_PATH"].defaultVal = filepath.Join(os.Getenv("GOPATH"), "github.com/qri-io/qri")
+	// strEnvFlags["QRI_REPO_PATH"].defaultVal = filepath.Join(os.Getenv("GOPATH"), "github.com/qri-io/qri")
 
 	// configure flag package
 	for _, fl := range strEnvFlags {
@@ -62,34 +62,24 @@ func main() {
 			for _, platform := range strings.Split(platforms, ",") {
 				wg.Add(1)
 				go func(arch, platform string) {
-					defer wg.Done()
-
-					if err := BuildQri(platform, arch, repoPath); err != nil {
-						log.Errorf("building qri: %s", err)
-						return
+					if err := BuildQriZip(arch, platform, repoPath); err != nil {
+						log.Errorf("%s", err.Error())
 					}
-					if err := BuildQriZip(platform, arch, templatesPath); err != nil {
-						log.Errorf("writing qri zip: %s", err)
-						return
-					}
-					if err := CleanupQriBuild(platform, arch); err != nil {
-						log.Errorf("cleanup: %s", err)
-						return
-					}
-					log.Infof("built zip")
+					wg.Done()
 				}(arch, platform)
 			}
 		}
 	case "electron":
 		log.Errorf("unfinished: %s", args[0])
 	case "webapp":
-		log.Errorf("unfinished: %s", args[0])
+		if err := BuildWebapp(frontendPath); err != nil {
+			log.Errorf("building webapp: %s", err)
+		}
 	default:
 		log.Errorf("unrecognized subcommand: %s", args[0])
 	}
 
 	wg.Wait()
-
 }
 
 func parseFlags() []string {
@@ -106,26 +96,50 @@ func parseFlags() []string {
 	return flag.Args()
 }
 
-type cmd struct {
-	name  string
-	flags map[string]string
-	env   map[string]string
-	args  []string
+type command struct {
+	String string
+	Tmpl   []interface{}
+	dir    string
+	env    map[string]string
 }
 
-func (cmd cmd) Run() error {
-	command := exec.Command(cmd.name, append(cmd.args, flags(cmd.flags)...)...)
-	command.Stderr = os.Stderr
-	command.Stdout = os.Stdout
-	command.Stdin = os.Stdin
-	command.Env = envs(cmd.env)
-	return command.Run()
+// Run executes a command
+func (c command) Run() error {
+	return c.prepare().Run()
 }
 
-func runCommands(cmds []cmd) (err error) {
-	for _, cmd := range cmds {
+// RunStdout executes a command, returning whatever is printed to stdout
+// as a string
+func (c command) RunStdout() (res string, err error) {
+	buf := &bytes.Buffer{}
+	cmd := c.prepare()
+	cmd.Stdout = buf
+	if err = cmd.Run(); err != nil {
+		return
+	}
+	res = buf.String()
+	return
+}
+
+func (c command) prepare() *exec.Cmd {
+	str := fmt.Sprintf(c.String, c.Tmpl...)
+	args := strings.Split(str, " ")
+	name := args[0]
+	log.Infof("%s %s", name, strings.Join(args[1:], " "))
+	cmd := exec.Command(name, args[1:]...)
+	cmd.Dir = c.dir
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	cmd.Env = envs(c.env)
+	return cmd
+}
+
+// RunCommands calls run on a series of commands
+func RunCommands(cs ...command) (err error) {
+	for _, cmd := range cs {
 		if err = cmd.Run(); err != nil {
-			return fmt.Errorf("running %s: %s", cmd.name, err)
+			return fmt.Errorf("running %s: %s", cmd.String, err)
 		}
 	}
 	return
@@ -142,7 +156,11 @@ func envs(vars map[string]string) (envs []string) {
 
 func flags(vars map[string]string) (flags []string) {
 	for key, val := range vars {
-		flags = append(flags, fmt.Sprintf("-%s=%s", key, val))
+		if val == "true" {
+			flags = append(flags, fmt.Sprintf("-%s", key))
+		} else {
+			flags = append(flags, fmt.Sprintf("-%s=%s", key, val))
+		}
 	}
 	return
 }

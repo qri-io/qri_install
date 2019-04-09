@@ -15,6 +15,26 @@ func buildDir(platform, arch string) string {
 	return fmt.Sprintf("%s_%s_%s", binName, platform, arch)
 }
 
+// BuildQriZip constructs a zip archive from a qri binary with a
+// templated readmoe
+func BuildQriZip(platform, arch, qriRepoPath string) (err error) {
+	if err = BuildQri(platform, arch, repoPath); err != nil {
+		log.Errorf("building qri: %s", err)
+		return
+	}
+	if err = ZipQriBuild(platform, arch, templatesPath); err != nil {
+		log.Errorf("writing qri zip: %s", err)
+		return
+	}
+	if err = CleanupQriBuild(platform, arch); err != nil {
+		log.Errorf("cleanup: %s", err)
+		return
+	}
+
+	log.Infof("built zip")
+	return
+}
+
 // BuildQri runs a build of the qri using the specified operating
 // system and architecture
 func BuildQri(platform, arch, qriRepoPath string) (err error) {
@@ -35,9 +55,9 @@ func BuildQri(platform, arch, qriRepoPath string) (err error) {
 		return
 	}
 
-	build := cmd{
-		name: "go",
-		args: []string{"build"},
+	build := command{
+		String: "go build -o %s",
+		Tmpl:   []interface{}{binPath},
 		env: map[string]string{
 			"GOOS":   platform,
 			"GOARCH": arch,
@@ -45,17 +65,14 @@ func BuildQri(platform, arch, qriRepoPath string) (err error) {
 			"GOPATH":      os.Getenv("GOPATH"),
 			"GO111MODULE": "off",
 		},
-		flags: map[string]string{
-			"o": binPath,
-		},
 	}
 
 	return build.Run()
 }
 
-// BuildQriZip creates a zip archive from a qri binary, expects BuildQri for
+// ZipQriBuild creates a zip archive from a qri binary, expects BuildQri for
 // matching platform & arch has already been called
-func BuildQriZip(platform, arch, templatesPath string) (err error) {
+func ZipQriBuild(platform, arch, templatesPath string) (err error) {
 	name := fmt.Sprintf("%s_%s_%s.zip", binName, platform, arch)
 	dirName := buildDir(platform, arch)
 	path := filepath.Join("./", dirName)
