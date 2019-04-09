@@ -4,7 +4,30 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/spf13/cobra"
 )
+
+// WebappCmd builds the qri react-js frontend
+var WebappCmd = &cobra.Command{
+	Use:   "webapp",
+	Short: "build the qri frontend webapp",
+	Run: func(cmd *cobra.Command, args []string) {
+		frontendPath, err := cmd.Flags().GetString("frontend")
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		if err := BuildWebapp(frontendPath); err != nil {
+			log.Errorf("building webapp: %s", err)
+		}
+	},
+}
+
+func init() {
+	WebappCmd.Flags().String("frontend", "frontend", "path to qri frontend repo")
+}
 
 // BuildWebapp builds the frontend and moves the result into a local directory
 // The core logic executes the following command from the frontendPath directory

@@ -1,6 +1,20 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
+
+// ElectronCmd builds the qri electron app
+var ElectronCmd = &cobra.Command{
+	Use: "electron",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := ElectronBuild("", ""); err != nil {
+			log.Error("building electron: %s", err)
+		}
+	},
+}
 
 // ElectronBuild runs main and render processes
 func ElectronBuild(platforms, arch string) (err error) {

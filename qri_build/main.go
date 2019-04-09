@@ -2,14 +2,13 @@ package main
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -17,6 +16,12 @@ var (
 	arches, platforms                     string
 	repoPath, frontendPath, templatesPath string
 )
+
+// RootCmd is the root command
+var RootCmd = &cobra.Command{
+	Use:   "qri_build",
+	Short: "CLI for building qri deliverables",
+}
 
 // strEnvFlags maps configuration values to flags and environment variables
 // each variable defaults to "defaultVal", can be set by an environment variable
@@ -40,61 +45,31 @@ func init() {
 	// strEnvFlags["QRI_REPO_PATH"].defaultVal = filepath.Join(os.Getenv("GOPATH"), "github.com/qri-io/qri")
 
 	// configure flag package
-	for _, fl := range strEnvFlags {
-		flag.StringVar(fl.val, fl.flag, fl.defaultVal, fl.usage)
-	}
+	// for _, fl := range strEnvFlags {
+	// 	flag.StringVar(fl.val, fl.flag, fl.defaultVal, fl.usage)
+	// }
+	RootCmd.AddCommand(QriCmd, WebappCmd)
 }
 
 func main() {
-	args := parseFlags()
-
-	if len(args) == 0 {
-		flag.PrintDefaults()
-		return
+	if err := RootCmd.Execute(); err != nil {
+		log.Error(err)
 	}
-
-	log.Infof("\n\tbuild: %s\n\tarches: %s\n\tplatforms: %s\n\trepoPath: %s\n\tfrontendPath: %s\n\ttemplatesPath: %s\n", args[0], arches, platforms, repoPath, frontendPath, templatesPath)
-
-	var wg sync.WaitGroup
-	switch strings.TrimSpace(strings.ToLower(args[0])) {
-	case "qri":
-		for _, arch := range strings.Split(arches, ",") {
-			for _, platform := range strings.Split(platforms, ",") {
-				wg.Add(1)
-				go func(arch, platform string) {
-					if err := BuildQriZip(arch, platform, repoPath); err != nil {
-						log.Errorf("%s", err.Error())
-					}
-					wg.Done()
-				}(arch, platform)
-			}
-		}
-	case "electron":
-		log.Errorf("unfinished: %s", args[0])
-	case "webapp":
-		if err := BuildWebapp(frontendPath); err != nil {
-			log.Errorf("building webapp: %s", err)
-		}
-	default:
-		log.Errorf("unrecognized subcommand: %s", args[0])
-	}
-
-	wg.Wait()
 }
 
-func parseFlags() []string {
-	flag.Parse()
+// func parseFlags() []string {
+// 	flag.Parse()
 
-	// check to see if flags are default and environment is set, overriding if so
-	for key, def := range strEnvFlags {
-		env := os.Getenv(key)
-		if env != "" && *def.val == def.defaultVal {
-			*def.val = env
-		}
-	}
+// 	// check to see if flags are default and environment is set, overriding if so
+// 	for key, def := range strEnvFlags {
+// 		env := os.Getenv(key)
+// 		if env != "" && *def.val == def.defaultVal {
+// 			*def.val = env
+// 		}
+// 	}
 
-	return flag.Args()
-}
+// 	return flag.Args()
+// }
 
 type command struct {
 	String string
@@ -125,7 +100,7 @@ func (c command) prepare() *exec.Cmd {
 	str := fmt.Sprintf(c.String, c.Tmpl...)
 	args := strings.Split(str, " ")
 	name := args[0]
-	log.Infof("%s %s", name, strings.Join(args[1:], " "))
+	log.Infof("$ %s %s", name, strings.Join(args[1:], " "))
 	cmd := exec.Command(name, args[1:]...)
 	cmd.Dir = c.dir
 	cmd.Stderr = os.Stderr
