@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -66,20 +64,5 @@ func BuildWebapp(frontendPath string) (err error) {
 		return err
 	}
 
-	return os.Rename(outputPath, "./web")
-}
-
-// http://2ality.com/2016/01/locally-installed-npm-executables.html
-func npmDoPath(pwd string) (path string, err error) {
-	npmBinPath, err := command{
-		String: "npm bin",
-		Dir:    pwd,
-	}.RunStdout()
-
-	if err != nil {
-		return
-	}
-
-	path = os.Getenv("PATH")
-	return fmt.Sprintf("%s:%s", npmBinPath, path), nil
+	return move(outputPath, "./web")
 }

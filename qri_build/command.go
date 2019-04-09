@@ -17,14 +17,14 @@ type command struct {
 
 // Run executes a command
 func (c command) Run() error {
-	return c.prepare().Run()
+	return c.prepare(false).Run()
 }
 
 // RunStdout executes a command, returning whatever is printed to stdout
 // as a string
 func (c command) RunStdout() (res string, err error) {
 	buf := &bytes.Buffer{}
-	cmd := c.prepare()
+	cmd := c.prepare(false)
 	cmd.Stdout = buf
 	if err = cmd.Run(); err != nil {
 		return
@@ -33,11 +33,29 @@ func (c command) RunStdout() (res string, err error) {
 	return
 }
 
-func (c command) prepare() *exec.Cmd {
+func (c command) SecretRunStdout() (res string, err error) {
+	buf := &bytes.Buffer{}
+	cmd := c.prepare(true)
+	cmd.Stdout = buf
+	if err = cmd.Run(); err != nil {
+		return
+	}
+	res = buf.String()
+	return
+}
+
+func (c command) prepare(quiet bool) *exec.Cmd {
 	str := fmt.Sprintf(c.String, c.Tmpl...)
 	args := strings.Split(str, " ")
 	name := args[0]
-	log.Infof("$ %s %s", name, strings.Join(args[1:], " "))
+
+	if !quiet {
+		if c.Dir != "" {
+			log.Debugf("$ pwd %s", c.Dir)
+		}
+		log.Infof("$ %s %s", name, strings.Join(args[1:], " "))
+	}
+
 	cmd := exec.Command(name, args[1:]...)
 	cmd.Dir = c.Dir
 	cmd.Stderr = os.Stderr
@@ -75,4 +93,32 @@ func flags(vars map[string]string) (flags []string) {
 		}
 	}
 	return
+}
+
+func removeAll(path string) error {
+	log.Infof("remove: %s", path)
+	return os.RemoveAll(path)
+}
+
+func move(oldpath, newpath string) error {
+	log.Infof("move: %s -> %s", oldpath, newpath)
+	return os.Rename(oldpath, newpath)
+}
+
+// npm does funny things to PATH, this gets the npm'd path
+// http://2ality.com/2016/01/locally-installed-npm-executables.html
+func npmDoPath(pwd string) (path string, err error) {
+	npmBinPath, err := command{
+		String: "npm bin",
+		Dir:    pwd,
+	}.SecretRunStdout()
+
+	npmBinPath = strings.TrimSpace(npmBinPath)
+
+	if err != nil {
+		return
+	}
+
+	path = os.Getenv("PATH")
+	return fmt.Sprintf("%s:%s", npmBinPath, path), nil
 }

@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"runtime"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -12,7 +11,19 @@ var ElectronCmd = &cobra.Command{
 	Use:   "electron",
 	Short: "build the qri electron app",
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := ElectronBuild("", "", "", ""); err != nil {
+		qriPath, err := cmd.Flags().GetString("qri")
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		frontendPath, err := cmd.Flags().GetString("frontend")
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		if err := ElectronBuildPackage(frontendPath, qriPath, nil, nil); err != nil {
 			log.Errorf("building electron: %s", err)
 		}
 	},
@@ -20,29 +31,95 @@ var ElectronCmd = &cobra.Command{
 
 func init() {
 	ElectronCmd.Flags().String("qri", "qri", "path to qri repository")
-	ElectronCmd.Flags().StringSlice("platforms", []string{runtime.GOOS}, "platforms to compile (darwin|windows|linux|...)")
-	ElectronCmd.Flags().StringSlice("arches", []string{runtime.GOARCH}, "architectures to compile (386|amd64|arm|...)")
 	ElectronCmd.Flags().String("frontend", "frontend", "path to qri frontend repo")
+	ElectronCmd.Flags().Bool("publish", false, "publish draft release to github, requires special access")
+	// TODO (b5) - these are hardcoded for now
+	// ElectronCmd.Flags().StringSlice("platforms", []string{runtime.GOOS}, "platforms to compile (darwin|windows|linux)")
+	// ElectronCmd.Flags().StringSlice("arches", []string{runtime.GOARCH}, "architectures to compile (386|amd64|arm|...)")
+}
+
+// ElectronBuildPackage builds electron app components and packages 'em up
+func ElectronBuildPackage(frontendPath, qriPath string, platforms, arches []string) (err error) {
+	path, err := npmDoPath(frontendPath)
+	if err != nil {
+		return
+	}
+
+	if err = ElectronBuild(frontendPath, qriPath, platforms, arches); err != nil {
+		return err
+	}
+
+	cmd := command{
+		String: "node_modules/.bin/build --publish %s",
+		Tmpl: []interface{}{
+			"never",
+		},
+		Dir: frontendPath,
+		Env: map[string]string{
+			"PATH": path,
+		},
+	}
+
+	if err = cmd.Run(); err != nil {
+		log.Errorf("running build: %s", err)
+		return
+	}
+
+	return move(filepath.Join(frontendPath, "dist"), "./electron")
 }
 
 // ElectronBuild runs main and render processes
-func ElectronBuild(platforms, arch, frontendPath, qriPath string) (err error) {
-	// fetch/checkout/init qri repo if not present
-	// build qri go binary for required arches
-	// move built binaries into frontend directories
+func ElectronBuild(frontendPath, qriPath string, platforms, arches []string) (err error) {
+	platform := "darwin"
+	arch := "amd64"
 
-	// fetch/checkout/init frontend repo if not present
+	// TODO (b5) - fetch/checkout/init qri repo if not present
+	// build qri go binary for required arches
+	buildDirPath, err := BuildQri(platform, arch, qriPath)
+	if err != nil {
+		log.Errorf("building qri: %s", err)
+		return
+	}
+
+	// move built binaries into frontend directories
+	platformResourcesDir := filepath.Join(frontendPath, "resources", electronPlatform(platform))
+	removeAll(platformResourcesDir)
+	move(buildDirPath, platformResourcesDir)
+
+	// TODO (b5) - fetch/checkout/init frontend repo if not present
 	// concurrently build main & renderer
-	return fmt.Errorf("not finished")
+	errs := make(chan error)
+
+	go func() {
+		errs <- ElectronBuildMain(frontendPath, platforms, arches)
+	}()
+	go func() {
+		errs <- ElectronBuildRenderer(frontendPath)
+	}()
+
+	if err = <-errs; err != nil {
+		return
+	}
+
+	return <-errs
+}
+
+func electronPlatform(platform string) (eplat string) {
+	switch platform {
+	case "darwin":
+		return "mac"
+	}
+	return platform
 }
 
 // ElectronBuildMain builds the main process (electron backend)
-func ElectronBuildMain(platforms, arch, frontendPath string) (err error) {
+func ElectronBuildMain(frontendPath string, platforms, arches []string) (err error) {
 	// "electron:build:main": "cross-env NODE_ENV=production node --trace-warnings -r @babel/register ./node_modules/webpack/bin/webpack --config webpack.config.main.prod.js --colors"
 	path, err := npmDoPath(frontendPath)
 	if err != nil {
 		return
 	}
+
 	// cross-env NODE_ENV=production node --trace-warnings -r @babel/register ./node_modules/webpack/bin/webpack --config webpack.config.main.prod.js --colors
 	cmd := command{
 		String: "node --trace-warnings -r @babel/register %s --config %s --colors",
@@ -52,18 +129,16 @@ func ElectronBuildMain(platforms, arch, frontendPath string) (err error) {
 		},
 		Dir: frontendPath,
 		Env: map[string]string{
-			"NODE_ENV": "production",
 			"PATH":     path,
+			"NODE_ENV": "production",
 		},
 	}
-	if err = cmd.Run(); err != nil {
-		return
-	}
-	return fmt.Errorf("not finished")
+
+	return cmd.Run()
 }
 
 // ElectronBuildRenderer builds the render process (react frontend)
-func ElectronBuildRenderer(platforms, arch, frontendPath string) (err error) {
+func ElectronBuildRenderer(frontendPath string) (err error) {
 	path, err := npmDoPath(frontendPath)
 	if err != nil {
 		return
@@ -78,12 +153,11 @@ func ElectronBuildRenderer(platforms, arch, frontendPath string) (err error) {
 		},
 		Dir: frontendPath,
 		Env: map[string]string{
-			"NODE_ENV": "production",
-			"PATH":     path,
+			"PATH":         path,
+			"NODE_ENV":     "production",
+			"NODE_OPTIONS": "--max_old_space_size=10000",
 		},
 	}
-	if err = cmd.Run(); err != nil {
-		return
-	}
-	return fmt.Errorf("not finished")
+
+	return cmd.Run()
 }

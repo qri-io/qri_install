@@ -73,7 +73,7 @@ func init() {
 // templated readmoe
 func BuildQriZip(platform, arch, qriRepoPath, templatesPath string) (err error) {
 
-	if err = BuildQri(platform, arch, qriRepoPath); err != nil {
+	if _, err = BuildQri(platform, arch, qriRepoPath); err != nil {
 		log.Errorf("building qri: %s", err)
 		return
 	}
@@ -95,15 +95,15 @@ func buildDir(platform, arch string) string {
 
 // BuildQri runs a build of the qri using the specified operating
 // system and architecture
-func BuildQri(platform, arch, qriRepoPath string) (err error) {
+func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 	dirName := buildDir(platform, arch)
-	path := filepath.Join("./", dirName)
+	path = filepath.Join("./", dirName)
 	binPath := filepath.Join(path, binName)
 
 	// cleanup if already exists
 	if fi, err := os.Stat(path); !os.IsNotExist(err) && fi.IsDir() {
 		if err = CleanupQriBuild(platform, arch); err != nil {
-			return err
+			return "", err
 		}
 	}
 
@@ -127,7 +127,7 @@ func BuildQri(platform, arch, qriRepoPath string) (err error) {
 		},
 	}
 
-	return build.Run()
+	return path, build.Run()
 }
 
 // ZipQriBuild creates a zip archive from a qri binary, expects BuildQri for
