@@ -34,7 +34,7 @@ var WebappCmd = &cobra.Command{
 				log.Errorf("building webapp: %s", err)
 			}
 		}
-		if err := BuildWebapp(frontendPath, ipfsAdd); err != nil {
+		if err := BuildWebapp(frontendPath, readOnly, ipfsAdd); err != nil {
 			log.Errorf("building webapp: %s", err)
 		}
 	},
