@@ -17,7 +17,24 @@ var WebappCmd = &cobra.Command{
 			return
 		}
 
-		if err := BuildWebapp(frontendPath); err != nil {
+		readOnly, err := cmd.Flags().GetBool("readonly")
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		ipfsAdd, err := cmd.Flags().GetBool("ipfs")
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		if readOnly {
+			if err := BuildWebappReadonly(frontendPath, ipfsAdd); err != nil {
+				log.Errorf("building webapp: %s", err)
+			}
+		}
+		if err := BuildWebapp(frontendPath, ipfsAdd); err != nil {
 			log.Errorf("building webapp: %s", err)
 		}
 	},
@@ -25,6 +42,8 @@ var WebappCmd = &cobra.Command{
 
 func init() {
 	WebappCmd.Flags().String("frontend", "frontend", "path to qri frontend repo")
+	WebappCmd.Flags().Bool("readonly", false, "build webapp in readonly mode")
+	WebappCmd.Flags().Bool("ipfs", false, "add completed build to local IPFS repo")
 }
 
 // BuildWebapp builds the frontend and moves the result into a local directory
@@ -36,21 +55,29 @@ func init() {
 // 		./node_modules/webpack/bin/webpack
 // 			--config webpack.config.webapp.prod.js
 // 			--colors
-func BuildWebapp(frontendPath string) (err error) {
+func BuildWebapp(frontendPath string, readOnly, ipfsAdd bool) (err error) {
 
 	// webpackPath := filepath.Join(frontendPath, "node_modules/webpack/bin/webpack")
 	outputPath := filepath.Join(frontendPath, "dist/web")
+	if readOnly {
+		outputPath = filepath.Join(frontendPath, "dist/readonly")
+	}
 
 	path, err := npmDoPath(frontendPath)
 	if err != nil {
 		return
 	}
 
+	webpackFile := "webpack.config.webapp.prod.js"
+	if readOnly {
+		webpackFile = "webpack.config.readonly.prod.js"
+	}
+
 	cmd := command{
 		String: "node --trace-warnings --require @babel/register %s --config %s --colors",
 		Tmpl: []interface{}{
 			"node_modules/webpack/bin/webpack",
-			"webpack.config.webapp.prod.js",
+			webpackFile,
 		},
 		Dir: frontendPath,
 		Env: map[string]string{
@@ -64,5 +91,63 @@ func BuildWebapp(frontendPath string) (err error) {
 		return err
 	}
 
-	return move(outputPath, "./web")
+	if err = move(outputPath, "./webapp"); err != nil {
+		return
+	}
+
+	if ipfsAdd {
+		hash, err := IPFSAdd("webapp")
+		if err != nil {
+			return err
+		}
+		log.Infof("ipfs hash: %s", hash)
+	}
+
+	return
+}
+
+// BuildWebappReadonly builds the webapp in readonly mode
+func BuildWebappReadonly(frontendPath string, ipfsAdd bool) (err error) {
+
+	// webpackPath := filepath.Join(frontendPath, "node_modules/webpack/bin/webpack")
+	outputPath := filepath.Join(frontendPath, "dist/readonly")
+
+	path, err := npmDoPath(frontendPath)
+	if err != nil {
+		return
+	}
+
+	webpackFile := "webpack.config.readonly.prod.js"
+
+	cmd := command{
+		String: "node --trace-warnings --require @babel/register %s --config %s --colors",
+		Tmpl: []interface{}{
+			"node_modules/webpack/bin/webpack",
+			webpackFile,
+		},
+		Dir: frontendPath,
+		Env: map[string]string{
+			"PATH":         path,
+			"NODE_ENV":     "production",
+			"NODE_OPTIONS": "--max_old_space_size=10000",
+		},
+	}
+
+	if err = cmd.Run(); err != nil {
+		return err
+	}
+
+	if err = move(outputPath, "./webapp"); err != nil {
+		return
+	}
+
+	if ipfsAdd {
+		hash, err := IPFSAdd("webapp")
+		if err != nil {
+			return err
+		}
+		log.Infof("ipfs hash: %s", hash)
+	}
+
+	return
 }
