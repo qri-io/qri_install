@@ -29,12 +29,7 @@ var WebappCmd = &cobra.Command{
 			return
 		}
 
-		if readOnly {
-			if err := BuildWebappReadonly(frontendPath, ipfsAdd); err != nil {
-				log.Errorf("building webapp: %s", err)
-			}
-		}
-		if err := BuildWebapp(frontendPath, ipfsAdd); err != nil {
+		if err := BuildWebapp(frontendPath, readOnly, ipfsAdd); err != nil {
 			log.Errorf("building webapp: %s", err)
 		}
 	},
@@ -72,52 +67,6 @@ func BuildWebapp(frontendPath string, readOnly, ipfsAdd bool) (err error) {
 	if readOnly {
 		webpackFile = "webpack.config.readonly.prod.js"
 	}
-
-	cmd := command{
-		String: "node --trace-warnings --require @babel/register %s --config %s --colors",
-		Tmpl: []interface{}{
-			"node_modules/webpack/bin/webpack",
-			webpackFile,
-		},
-		Dir: frontendPath,
-		Env: map[string]string{
-			"PATH":         path,
-			"NODE_ENV":     "production",
-			"NODE_OPTIONS": "--max_old_space_size=10000",
-		},
-	}
-
-	if err = cmd.Run(); err != nil {
-		return err
-	}
-
-	if err = move(outputPath, "./webapp"); err != nil {
-		return
-	}
-
-	if ipfsAdd {
-		hash, err := IPFSAdd("webapp")
-		if err != nil {
-			return err
-		}
-		log.Infof("ipfs hash: %s", hash)
-	}
-
-	return
-}
-
-// BuildWebappReadonly builds the webapp in readonly mode
-func BuildWebappReadonly(frontendPath string, ipfsAdd bool) (err error) {
-
-	// webpackPath := filepath.Join(frontendPath, "node_modules/webpack/bin/webpack")
-	outputPath := filepath.Join(frontendPath, "dist/readonly")
-
-	path, err := npmDoPath(frontendPath)
-	if err != nil {
-		return
-	}
-
-	webpackFile := "webpack.config.readonly.prod.js"
 
 	cmd := command{
 		String: "node --trace-warnings --require @babel/register %s --config %s --colors",

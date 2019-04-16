@@ -111,6 +111,13 @@ func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 		return
 	}
 
+	// GOCACHE is a required env variable in order to build
+	// need to get the user's cache directory
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return
+	}
+
 	build := command{
 		String: "go build -o %s %s",
 		Tmpl: []interface{}{
@@ -124,6 +131,7 @@ func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 			// TODO (b5): need this while we're still off go modules
 			"GOPATH":      os.Getenv("GOPATH"),
 			"GO111MODULE": "off",
+			"GOCACHE":     cacheDir,
 		},
 	}
 
