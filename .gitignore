@@ -1,2 +1,5 @@
 qri_build/qri_*
 qri_build/webapp
+qri_build/electron
+qri_build/qri-*
+.DS_Store
