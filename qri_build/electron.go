@@ -52,14 +52,20 @@ func ElectronBuildPackage(frontendPath, qriPath string, platforms, arches []stri
 		return
 	}
 
-	if err = ElectronBuild(frontendPath, qriPath, platforms, arches); err != nil {
-		return err
-	}
-
 	publishString := "never"
+	gh_token := ""
 
 	if publish {
+		gh_token = os.Getenv("GH_TOKEN")
+		if gh_token == "" {
+			log.Error("You want to publish this release to github, but the \"GH_TOKEN\" environment variable is not set. Check out this article on how to get a personal access token from github: https://help.github.com/en/articles/creating-a-personal-access-token-for-the-command-line")
+			return
+		}
 		publishString = "always"
+	}
+
+	if err = ElectronBuild(frontendPath, qriPath, platforms, arches); err != nil {
+		return err
 	}
 
 	cmd := command{
@@ -70,7 +76,7 @@ func ElectronBuildPackage(frontendPath, qriPath string, platforms, arches []stri
 		Dir: frontendPath,
 		Env: map[string]string{
 			"PATH":     path,
-			"GH_TOKEN": os.Getenv("GH_TOKEN"),
+			"GH_TOKEN": gh_token,
 		},
 	}
 
