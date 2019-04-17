@@ -34,4 +34,9 @@ Things you need to have before you attempt to publish a release of the electron 
 - the conventional-changelog cli (`npm add -g conventional-changelog-cli`)
 - A github access token. Get this from your github account. Add the token to your environment as GH_TOKEN (export GH_TOKEN="tokenstringhere")
 
-
+Steps to take before publishing a release
+- update the version of Qri on the backend in:
+  - p2p/p2p.go
+  - lib/lib.go
+  - run api tests with -u
+  
