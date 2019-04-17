@@ -39,4 +39,17 @@ Steps to take before publishing a release
   - p2p/p2p.go
   - lib/lib.go
   - run api tests with -u
-  
+
+This readme is a work in progress!
+
+### To test the webapp and readonly webapp builds
+- build using `qri_build webapp --frontend path/to/frontend --ipfs` or `qri_build webapp --frontend path/to/frontend --ipfs --readonly`
+  The ipfs flag will add the webapp to ipfs. The last line of the output will indicate the hash of the webapp file. Note it! We will refer to it as `QmHASH`
+- we need to edit the Qri config to look for the webapp in a different place then it normally would. First `qri config set webapp.entrypointhash /ipfs/QmHASH`. This tells qri to serve the webapp from that location
+- next, `qri config set webapp.entrypointupdateaddress ""`. The entry point update address is where Qri normally looks to see if it should attempt to download a new version of the webapp. To ensure that the entry point hash does not get written over, we need to set this address empty.
+- note the webapp port, by default it is 2505
+- run `qri connect`
+- got to `localhost:2505`, or whatever port number is set in your config
+- you should see qri!
+
+If you don't, one common pitfall in the qri dev world is to do the `qri_build` process in a different environment then the one where you are running `qri connect` if both processes refer to different ipfs locations, then the webapp won't load when you run `qri connect` and try to load webapp via hash from ipfs
