@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -23,7 +24,13 @@ var ElectronCmd = &cobra.Command{
 			return
 		}
 
-		if err := ElectronBuildPackage(frontendPath, qriPath, nil, nil); err != nil {
+		publish, err := cmd.Flags().GetBool("publish")
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		if err := ElectronBuildPackage(frontendPath, qriPath, nil, nil, publish); err != nil {
 			log.Errorf("building electron: %s", err)
 		}
 	},
@@ -39,7 +46,7 @@ func init() {
 }
 
 // ElectronBuildPackage builds electron app components and packages 'em up
-func ElectronBuildPackage(frontendPath, qriPath string, platforms, arches []string) (err error) {
+func ElectronBuildPackage(frontendPath, qriPath string, platforms, arches []string, publish bool) (err error) {
 	path, err := npmDoPath(frontendPath)
 	if err != nil {
 		return
@@ -49,14 +56,21 @@ func ElectronBuildPackage(frontendPath, qriPath string, platforms, arches []stri
 		return err
 	}
 
+	publishString := "never"
+
+	if publish {
+		publishString = "always"
+	}
+
 	cmd := command{
 		String: "node_modules/.bin/build --publish %s",
 		Tmpl: []interface{}{
-			"never",
+			publishString,
 		},
 		Dir: frontendPath,
 		Env: map[string]string{
-			"PATH": path,
+			"PATH":     path,
+			"GH_TOKEN": os.Getenv("GH_TOKEN"),
 		},
 	}
 
