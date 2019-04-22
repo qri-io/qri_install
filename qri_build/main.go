@@ -18,6 +18,7 @@ func init() {
 		QriCmd,
 		WebappCmd,
 		ElectronCmd,
+		HomebrewCmd,
 	)
 }
 
