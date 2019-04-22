@@ -110,7 +110,7 @@ func HomebrewBuildInstaller(srcPath, zipFile string, ignoreDevRestriction bool) 
 	content = strings.Replace(content, "$ZIPFILE", zipBasename, -1)
 	content = strings.Replace(content, "$SHA256", hashDigest, -1)
 
-	// TODO: Publish this to github.com/qri-io/homebrew-qri/Formula/qri.rb
+	// TODO(dustmop): Publish this to github.com/qri-io/homebrew-qri/Formula/qri.rb
 	fmt.Printf(content)
 
 	return nil
