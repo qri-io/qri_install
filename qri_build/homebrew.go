@@ -2,8 +2,9 @@ package main
 
 import (
 	"crypto/sha256"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -50,7 +51,7 @@ const homebrewFormulaTemplate = `
 class Qri < Formula
   desc "Global dataset version control system built on the distributed web"
   homepage "https://qri.io/"
-  url "https://github.com/qri-io/qri/releases/download/$VERSION/$ZIPFILE"
+  url "https://github.com/qri-io/qri/releases/download/v$VERSION/$ZIPFILE"
   version "$VERSION"
   sha256 "$SHA256"
 
@@ -66,11 +67,24 @@ end
 
 // HomebrewBuildInstaller builds the homebrew installer
 func HomebrewBuildInstaller(srcPath, zipFile string, ignoreDevRestriction bool) error {
+	if srcPath == "" && zipFile == "" {
+		return fmt.Errorf("required flags: --src <path to qri source> --zip <path to zip release>")
+	}
 	if srcPath == "" {
 		return fmt.Errorf("required flag: --src <path to qri source>")
 	}
 	if zipFile == "" {
 		return fmt.Errorf("required flag: --zip <path to zip release>")
+	}
+
+	// Make sure the homebrew-qri repo exists as a directory.
+	homebrewRepo := filepath.Join(os.Getenv("GOPATH"), "src/github.com/qri-io/homebrew-qri")
+	stat, err := os.Stat(homebrewRepo)
+	if err != nil {
+		return err
+	}
+	if !stat.IsDir() {
+		return fmt.Errorf("file exists, must be a directory: %s", homebrewRepo)
 	}
 
 	// Calculate the sha256 of the zip file that is being released.
@@ -110,8 +124,13 @@ func HomebrewBuildInstaller(srcPath, zipFile string, ignoreDevRestriction bool) 
 	content = strings.Replace(content, "$ZIPFILE", zipBasename, -1)
 	content = strings.Replace(content, "$SHA256", hashDigest, -1)
 
-	// TODO(dustmop): Publish this to github.com/qri-io/homebrew-qri/Formula/qri.rb
-	fmt.Printf(content)
+	// Publish to the homebrew repo.
+	formulaPath := filepath.Join(homebrewRepo, "qri.rb")
+	err = ioutil.WriteFile(formulaPath, []byte(content), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Wrote version %s formula to %s. Commit and push that repo.\n", versionNum, formulaPath)
 
 	return nil
 }
