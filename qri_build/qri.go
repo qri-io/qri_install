@@ -72,15 +72,21 @@ func init() {
 // BuildQriZip constructs a zip archive from a qri binary with a
 // templated readmoe
 func BuildQriZip(platform, arch, qriRepoPath, templatesPath string) (err error) {
-
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Errorf("getting current directory: %s", err)
+		return
+	}
 	if _, err = BuildQri(platform, arch, qriRepoPath); err != nil {
 		log.Errorf("building qri: %s", err)
 		return
 	}
+	os.Chdir(cwd)
 	if err = ZipQriBuild(platform, arch, templatesPath); err != nil {
 		log.Errorf("writing qri zip: %s", err)
 		return
 	}
+	os.Chdir(cwd)
 	if err = CleanupQriBuild(platform, arch); err != nil {
 		log.Errorf("cleanup: %s", err)
 		return
@@ -99,6 +105,15 @@ func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 	dirName := buildDir(platform, arch)
 	path = filepath.Join("./", dirName)
 	binPath := filepath.Join(path, binName)
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	relPath, err := filepath.Rel(qriRepoPath, cwd)
+	if err != nil {
+		panic(err)
+	}
+	relBinPath := filepath.Join(relPath, binPath)
 
 	// cleanup if already exists
 	if fi, err := os.Stat(path); !os.IsNotExist(err) && fi.IsDir() {
@@ -118,11 +133,14 @@ func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 		return
 	}
 
+	// With go modules enabled, `go build` requires being in the directory of the build target.
+	log.Infof("changing directory to %s", qriRepoPath)
+	os.Chdir(qriRepoPath)
+
 	build := command{
-		String: "go build -o %s %s",
+		String: "go build -o %s",
 		Tmpl: []interface{}{
-			binPath,
-			qriRepoPath,
+			relBinPath,
 		},
 		Env: map[string]string{
 			"GOOS":   platform,
@@ -130,7 +148,7 @@ func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 			"PATH":   os.Getenv("PATH"),
 			// TODO (b5): need this while we're still off go modules
 			"GOPATH":      os.Getenv("GOPATH"),
-			"GO111MODULE": "off",
+			"GO111MODULE": os.Getenv("GO111MODULE"),
 			"GOCACHE":     cacheDir,
 		},
 	}
