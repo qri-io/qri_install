@@ -103,12 +103,12 @@ func buildDir(platform, arch string) string {
 // system and architecture
 func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 	dirName := buildDir(platform, arch)
-	path = filepath.Join("./", dirName)
-	binPath := filepath.Join(path, binName)
 	cwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
+	path = filepath.Join(cwd, dirName)
+	binPath := filepath.Join(dirName, binName)
 	relPath, err := filepath.Rel(qriRepoPath, cwd)
 	if err != nil {
 		panic(err)
@@ -122,7 +122,7 @@ func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 		}
 	}
 
-	if err = os.Mkdir(path, os.ModePerm); err != nil {
+	if err = os.MkdirAll(path, os.ModePerm); err != nil {
 		return
 	}
 

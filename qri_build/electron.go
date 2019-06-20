@@ -85,7 +85,17 @@ func ElectronBuildPackage(frontendPath, qriPath string, platforms, arches []stri
 		return
 	}
 
-	return move(filepath.Join(frontendPath, "dist"), "./electron")
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	electronDir := filepath.Join(cwd, "electron")
+	if fi, err := os.Stat(electronDir); !os.IsNotExist(err) && fi.IsDir() {
+		if err = removeAll(electronDir); err != nil {
+			return err
+		}
+	}
+	return move(filepath.Join(frontendPath, "dist"), electronDir)
 }
 
 // ElectronBuild runs main and render processes
@@ -103,8 +113,14 @@ func ElectronBuild(frontendPath, qriPath string, platforms, arches []string) (er
 
 	// move built binaries into frontend directories
 	platformResourcesDir := filepath.Join(frontendPath, "resources", electronPlatform(platform))
-	removeAll(platformResourcesDir)
-	move(buildDirPath, platformResourcesDir)
+	if err = removeAll(platformResourcesDir); err != nil {
+		log.Errorf("error removing old platform resources: %s", err)
+		return
+	}
+	if err = move(buildDirPath+"/qri", platformResourcesDir+"/qri"); err != nil {
+		log.Errorf("error moving new plaform resources to frontend: %s", err)
+		return
+	}
 
 	// TODO (b5) - fetch/checkout/init frontend repo if not present
 	// concurrently build main & renderer
