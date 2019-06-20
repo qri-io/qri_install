@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -94,12 +95,22 @@ func BuildWebapp(frontendPath string, readOnly, ipfsAdd bool, apiURL string) (er
 		return err
 	}
 
-	if err = move(outputPath, "./webapp"); err != nil {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	webappDir := filepath.Join(cwd, "webapp")
+	if fi, err := os.Stat(webappDir); !os.IsNotExist(err) && fi.IsDir() {
+		if err := removeAll(webappDir); err != nil {
+			return err
+		}
+	}
+	if err = move(outputPath, webappDir); err != nil {
 		return
 	}
 
 	if ipfsAdd {
-		hash, err := IPFSAdd("webapp")
+		hash, err := IPFSAdd(webappDir)
 		if err != nil {
 			return err
 		}
