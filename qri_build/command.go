@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -102,6 +103,10 @@ func removeAll(path string) error {
 
 func move(oldpath, newpath string) error {
 	log.Infof("move: %s -> %s", oldpath, newpath)
+
+	if err := os.MkdirAll(filepath.Dir(newpath), 0777); err != nil {
+		return fmt.Errorf("error making directories: %s", err)
+	}
 	return os.Rename(oldpath, newpath)
 }
 
