@@ -1,55 +1,105 @@
 # qri install
 
+This repo is the entry point to the qri universe. Qri has a lot moving parts, and spans multiple repositories. The purpose of qri_install is to make it easy to pull everything together for the purposes of producing a full build and other related tasks.
+
+Goals:
+
+* performing full builds
+* updating all repositories at once
+* continuous builds & tests
+* comprehensive documentation tests
+
 ## qri_build
-qri_build allows the folks at Qri to build the production versions of the Qri webapp, the qri readonly webapp, the Qri electron app, and the Qri binary!
 
-You can use this tool to build Qri, but only members of the Qri project can access the permissions to release an official version.
+qri_build enables an easy way to build qri targets. These include:
 
-### Publishing a release of the electron app
-Things you need to have before you attempt to publish a release of the electron app to Qri:
-- the conventional-changelog cli (`npm add -g conventional-changelog-cli`)
-- Developer ID Application certificate & private key (contact a Qri member who has permission to publish a release)
-- A github access token. Get this from your github account. Add the token to your environment as GH_TOKEN (export GH_TOKEN="tokenstringhere")
+* electron frontend app
+  * Qri.app
+  * dmg for Mac OSX
+  * TODO: windows installer
+  * TODO: linux
+* webapp
+  * publicly accessible app.qri.io
+  * standard fallback app (/ipns/webapp)
+  * TODO: non-minified webapp
+* qri backend: the command-line `qri`
+* homebrew tap
 
-Steps to take before publishing a release
-- update the version of Qri on the frontend in:
-  - version.js
-  - app/package.json
-  - package.json
-- navigate to your frontend directory
-- run `conventional-changelog -p angular -i CHANGELOG.md -s` (this will auto generate a changelog against the previous version. CHANGELOG.md is the input file, and the `-s` flag indicates we should append to the beginning of the changelog, not save over the file)
-- draft a set of release notes, add these to the beginning of the CHANGELOG.md file, following the format that has already been established
-- create a pr using the title `chore(release): release vX.X.X`
-- get feedback and merge the pr
+TODO(dlong): Where do build output artifacts go to?
 
-To build electron and publish a release
-- run `qri_build electron --frontend path/to/frontend --qri path/to/qri --publish`
-  Be aware that the process will need access to your keychain, you may need to input your password for each time you have to sign a different part of the application.
-  This should build a qri binary, place the binary in the correct location, build the qri electron app, sign the app, and push it to github as a draft release
-- add the release notes to the draft release
-- publish the release!
+## Creating a changelog
 
-### Publishing a release of the Qri binary
-Things you need to have before you attempt to publish a release of the electron app to Qri:
-- the conventional-changelog cli (`npm add -g conventional-changelog-cli`)
-- A github access token. Get this from your github account. Add the token to your environment as GH_TOKEN (export GH_TOKEN="tokenstringhere")
+1. Make sure you have "conventional-changelog" installed. If not, get it with `npm add -g conventional-changelog-cli`
 
-Steps to take before publishing a release
-- update the version of Qri on the backend in:
-  - p2p/p2p.go
-  - lib/lib.go
-  - run api tests with -u
+2. `cd` to the project directory, run:
+   `conventional-changelog -p angular -i CHANGELOG.md -s`
 
-This readme is a work in progress!
+   This will auto generate a changelog against the previous version. CHANGELOG.md is the input file, and the `-s` flag indicates we should append to the beginning of the changelog, not save over the file
+  
+3. Draft a set of release notes, add these to the beginning of the CHANGELOG.md file, following the format that has already been established
 
-### To test the webapp and readonly webapp builds
-- build using `qri_build webapp --frontend path/to/frontend --ipfs` or `qri_build webapp --frontend path/to/frontend --ipfs --readonly`
-  The ipfs flag will add the webapp to ipfs. The last line of the output will indicate the hash of the webapp file. Note it! We will refer to it as `QmHASH`
-- we need to edit the Qri config to look for the webapp in a different place then it normally would. First `qri config set webapp.entrypointhash /ipfs/QmHASH`. This tells qri to serve the webapp from that location
-- next, `qri config set webapp.entrypointupdateaddress ""`. The entry point update address is where Qri normally looks to see if it should attempt to download a new version of the webapp. To ensure that the entry point hash does not get written over, we need to set this address empty.
-- note the webapp port, by default it is 2505
-- run `qri connect`
-- got to `localhost:2505`, or whatever port number is set in your config
-- you should see qri!
+4. Create a PR using the title `chore(release): release vX.X.X`
 
-If you don't, one common pitfall in the qri dev world is to do the `qri_build` process in a different environment then the one where you are running `qri connect` if both processes refer to different ipfs locations, then the webapp won't load when you run `qri connect` and try to load webapp via hash from ipfs
+5. Get feedback and merge the PR
+
+## Electron
+
+*To build the electron Qri.app:*
+
+`qri_build electron --frontend ${GOPATH}/src/github.com/qri-io/frontend --qri ${GOPATH}/src/github.com/qri-io/qri`
+
+This will build a qri binary, place the binary in the correct location, and build the qri electron app.
+
+TODO(dlong): Should we support building just the electron app without the backend? Even if not, error when --qri is not provided needs to be improved.
+
+*To build and publish a signed Mac OSX installer:*
+
+`qri_build electron --frontend ${GOPATH}/src/github.com/qri-io/frontend --qri ${GOPATH}/src/github.com/qri-io/qri --publish`
+
+This builds a dmg installer including the app, signs it with developer credentials, and pushes it to github as a draft release.
+
+Be aware that the process will need access to your keychain, you may need to input your password for each time you have to sign a different part of the application.
+
+## Webapp
+
+The webapp has two varieties. The "standard fallback webapp" and the "publically accessible app.qri.io".
+
+### Standard fallback webapp
+
+`qri_build webapp --frontend ${GOPATH}/src/github.com/qri-io/frontend`
+
+This complies the webapp as a js blob. The command prints the api-url, usually something like http://localhost:2503
+
+*To push this build to IPFS*
+
+`qri_build webapp --frontend ${GOPATH}/src/github.com/qri-io/frontend --ipfs`
+
+__How the fallback app works__
+
+When a user runs `qri connect`, the application looks for a new version of the fallback app on ipfs. It does this by resolving the address "/ipns/webapp" (by default) to get an ipfs hash, then downloads the js blob at that hash. Note that, even though this address looks like it is using ipns, we do a normal dns lookup.
+
+The address to resolve is in the config.yaml as `webapp.entrypointupdateaddress` and the resolved ipfs hash is saved as 'webapp.entrypointhash`.
+
+If the fallback app is not working, make sure the config.yaml has `webapp.enabled` set to true.
+
+### publicly accessible app.qri.io
+
+`qri_build webapp --frontend ~/frontend --ipfs --read-only --api-url https://api.qri.io`
+
+The webapp at app.qri.io runs with `--read-only` enabled, so that it only serves datasets, not creates them. The build flag `--api-url` sets the url used for api requests. It sets the env var `QRI_FRONTEND_BUILD_API_URL` for qri_build.
+
+### building a non-minified webapp
+
+Meant only for debugging purposes
+
+Building is slow due to minification -> comment out MinifyPlugin
+
+TODO(dlong): Elaborate on this documentation
+
+## Qri backend command-line
+
+`qri_build qri --qri ${GOPATH}/src/github.com/qri-io/qri`
+
+outputs to qri_darwin_amd64.zip
+
+TODO(dlong): Document cross-compilation
