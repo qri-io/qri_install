@@ -1,6 +1,6 @@
 # qri install
 
-This repo is the entry point to the qri universe. Qri has a lot moving parts, and spans multiple repositories. The purpose of qri_install is to make it wasy to pull everything together for the purposes of producing a full build and other related tasks.
+This repo is the entry point to the qri universe. Qri has a lot moving parts, and spans multiple repositories. The purpose of qri_install is to make it easy to pull everything together for the purposes of producing a full build and other related tasks.
 
 Goals:
 
@@ -86,7 +86,7 @@ If the fallback app is not working, make sure the config.yaml has `webapp.enable
 
 `qri_build webapp --frontend ~/frontend --ipfs --read-only --api-url https://api.qri.io`
 
-The webapp at app.qri.io runs with `--read-only` enabled, so that it is only serves datasets, not creating them. The build flag `--api-url` sets the url used for api requests. It sets the env var `QRI_FRONTEND_BUILD_API_URL` for qri_build.
+The webapp at app.qri.io runs with `--read-only` enabled, so that it only serves datasets, not creates them. The build flag `--api-url` sets the url used for api requests. It sets the env var `QRI_FRONTEND_BUILD_API_URL` for qri_build.
 
 ### building a non-minified webapp
 
