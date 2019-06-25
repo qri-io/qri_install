@@ -17,6 +17,10 @@ var WebappCmd = &cobra.Command{
 			log.Error(err)
 			return
 		}
+		if frontendPath == "" {
+			log.Errorf("Flag --frontend is required, as an absolute path")
+			return
+		}
 
 		readOnly, err := cmd.Flags().GetBool("readonly")
 		if err != nil {

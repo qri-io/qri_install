@@ -39,10 +39,18 @@ var QriCmd = &cobra.Command{
 			log.Error(err)
 			return
 		}
+		if repoPath == "" {
+			log.Errorf("Flag --qri is required, as an absolute path")
+			return
+		}
 
 		templatesPath, err := cmd.Flags().GetString("templates")
 		if err != nil {
 			log.Error(err)
+			return
+		}
+		if templatesPath == "" {
+			log.Errorf("Flag --templates is required, as an absolute path")
 			return
 		}
 
@@ -63,10 +71,10 @@ var QriCmd = &cobra.Command{
 }
 
 func init() {
-	QriCmd.Flags().String("qri", "qri", "path to qri repository")
+	QriCmd.Flags().String("qri", "", "path to qri repository")
 	QriCmd.Flags().StringSlice("platforms", []string{runtime.GOOS}, "platforms to compile (darwin|windows|linux|...)")
 	QriCmd.Flags().StringSlice("arches", []string{runtime.GOARCH}, "architectures to compile (386|amd64|arm|...)")
-	QriCmd.Flags().String("templates", "templates", "path to templates directory")
+	QriCmd.Flags().String("templates", "", "path to templates directory")
 }
 
 // BuildQriZip constructs a zip archive from a qri binary with a
@@ -81,17 +89,16 @@ func BuildQriZip(platform, arch, qriRepoPath, templatesPath string) (err error) 
 		log.Errorf("building qri: %s", err)
 		return
 	}
-	os.Chdir(cwd)
 	if err = ZipQriBuild(platform, arch, templatesPath); err != nil {
 		log.Errorf("writing qri zip: %s", err)
 		return
 	}
-	os.Chdir(cwd)
 	if err = CleanupQriBuild(platform, arch); err != nil {
 		log.Errorf("cleanup: %s", err)
 		return
 	}
 	log.Infof("built zip")
+	os.Chdir(cwd)
 	return
 }
 

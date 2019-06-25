@@ -17,10 +17,18 @@ var ElectronCmd = &cobra.Command{
 			log.Error(err)
 			return
 		}
+		if qriPath == "" {
+			log.Errorf("Flag --qri is required, as an absolute path")
+			return
+		}
 
 		frontendPath, err := cmd.Flags().GetString("frontend")
 		if err != nil {
 			log.Error(err)
+			return
+		}
+		if frontendPath == "" {
+			log.Errorf("Flag --frontend is requried, as an absolute path")
 			return
 		}
 
@@ -37,8 +45,8 @@ var ElectronCmd = &cobra.Command{
 }
 
 func init() {
-	ElectronCmd.Flags().String("qri", "qri", "path to qri repository")
-	ElectronCmd.Flags().String("frontend", "frontend", "path to qri frontend repo")
+	ElectronCmd.Flags().String("qri", "", "path to qri repository")
+	ElectronCmd.Flags().String("frontend", "", "path to qri frontend repo")
 	ElectronCmd.Flags().Bool("publish", false, "publish draft release to github, requires special access")
 	// TODO (b5) - these are hardcoded for now
 	// ElectronCmd.Flags().StringSlice("platforms", []string{runtime.GOOS}, "platforms to compile (darwin|windows|linux)")
