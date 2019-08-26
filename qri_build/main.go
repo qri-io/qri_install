@@ -17,6 +17,7 @@ func init() {
 	RootCmd.AddCommand(
 		QriCmd,
 		WebappCmd,
+		DesktopCmd,
 		ElectronCmd,
 		HomebrewCmd,
 	)
