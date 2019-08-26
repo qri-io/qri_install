@@ -98,7 +98,8 @@ func DesktopBuildPackage(desktopPath, qriPath string, platforms, arches []string
 
 	// Copy qri binary into desktop's backend/ folder
 	log.Infof("copying qri binary into desktop...")
-	targetBinName := path.Base(builtPath)
+	// Work-around for Windows slashes, would be ignored by path.Base
+	targetBinName := path.Base(strings.Replace(builtPath, "\\", "/", -1))
 	if runtime.GOOS == "windows" {
 		// In Windows, make sure the binary ends in ".exe". If not, add the extension when
 		// copying it.
