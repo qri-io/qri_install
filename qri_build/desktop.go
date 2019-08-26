@@ -17,6 +17,18 @@ import (
 var DesktopCmd = &cobra.Command{
 	Use:   "desktop",
 	Short: "build the qri desktop app",
+	Long: `
+build the qri desktop app, by first buliding the qri command-line binary and copying it
+into the desktop's folder. This command is dependent upon having a correct $GOPATH,
+having $GO111MODULE set to 'on', and having both 'go' and 'yarn' installed.
+
+The directories for the 'qri' and 'desktop' source code need to be specified as command-line
+arguments. For convenience, both will have their code pulled from the git origin, which
+requires them to have the 'master' branch checked out.
+
+The final installed that is built will have it's path displayed once this process completes
+without any errors.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		qriPath, err := cmd.Flags().GetString("qri")
 		if err != nil {
@@ -41,6 +53,7 @@ func init() {
 	DesktopCmd.Flags().String("desktop", "", "path to qri desktop repo")
 }
 
+// RequiredGoVersion is the required version of go needed to build qri
 const RequiredGoVersion = "1.12"
 
 // DesktopBuildPackage builds the desktop app with the necessary qri binary
@@ -132,10 +145,20 @@ func updateSource(path string) error {
 }
 
 // buildQriBinary will build the qri binary, returning the path of the built binary
-func buildQriBinary(path string) (string, error) {
+func buildQriBinary(projectPath string) (string, error) {
+	buildPath := filepath.Join(projectPath, "build")
+	targetBinPath := filepath.Join(buildPath, "qri")
+
+	if _, err := os.Stat(buildPath); os.IsNotExist(err) {
+		err := os.Mkdir(buildPath, os.ModePerm)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	cmd := command{
-		String: "go install",
-		Dir:    path,
+		String: "go build -o build/qri",
+		Dir:    projectPath,
 	}
 
 	err := cmd.Run()
@@ -143,17 +166,7 @@ func buildQriBinary(path string) (string, error) {
 		return "", err
 	}
 
-	cmd = command{
-		String: "which qri",
-		Dir:    path,
-	}
-
-	output, err := cmd.RunStdout()
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(output), nil
+	return targetBinPath, nil
 }
 
 // buildDesktopApp will build the distributable electron installer for desktop
