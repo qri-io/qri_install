@@ -107,7 +107,14 @@ func DesktopBuildPackage(desktopPath, qriPath string, platforms, arches []string
 			targetBinName += ".exe"
 		}
 	}
-	err = CopyFile(builtPath, filepath.Join(desktopPath, "backend/", targetBinName))
+	backendBinary := filepath.Join(desktopPath, "backend/", targetBinName)
+	err = CopyFile(builtPath, backendBinary)
+	if err != nil {
+		return err
+	}
+
+	// Set the backend binary as executable
+	err = os.Chmod(backendBinary, 0755)
 	if err != nil {
 		return err
 	}
