@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/blang/semver"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +43,13 @@ without any errors.
 			return
 		}
 
-		if err := DesktopBuildPackage(desktopPath, qriPath, nil, nil); err != nil {
+		noUpdate, err := cmd.Flags().GetBool("no-update-source")
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		if err := DesktopBuildPackage(desktopPath, qriPath, !noUpdate, nil, nil); err != nil {
 			log.Errorf("%s", err)
 		}
 	},
@@ -51,13 +58,14 @@ without any errors.
 func init() {
 	DesktopCmd.Flags().String("qri", "", "path to qri repository")
 	DesktopCmd.Flags().String("desktop", "", "path to qri desktop repo")
+	DesktopCmd.Flags().Bool("no-update-source", false, "don't switch & pull master branches")
 }
 
-// RequiredGoVersion is the required version of go needed to build qri
-const RequiredGoVersion = "1.12"
+// MinRequiredGoVersion is the required version of go needed to build qri
+var MinRequiredGoVersion = semver.MustParse("1.12.0")
 
 // DesktopBuildPackage builds the desktop app with the necessary qri binary
-func DesktopBuildPackage(desktopPath, qriPath string, platforms, arches []string) (err error) {
+func DesktopBuildPackage(desktopPath, qriPath string, pullMaster bool, platforms, arches []string) (err error) {
 	if qriPath == "" || desktopPath == "" {
 		return fmt.Errorf("Flags --qri and --desktop are both required")
 	}
@@ -77,16 +85,18 @@ func DesktopBuildPackage(desktopPath, qriPath string, platforms, arches []string
 		return err
 	}
 
-	// Update source code for qri binary
-	log.Infof("updating source code for qri...")
-	if err = updateSource(qriPath); err != nil {
-		return err
-	}
+	if pullMaster {
+		// Update source code for qri binary
+		log.Infof("updating source code for qri...")
+		if err = updateSource(qriPath); err != nil {
+			return err
+		}
 
-	// Update source code for desktop app
-	log.Infof("updating source code for desktop...")
-	if err = updateSource(desktopPath); err != nil {
-		return err
+		// Update source code for desktop app
+		log.Infof("updating source code for desktop...")
+		if err = updateSource(desktopPath); err != nil {
+			return err
+		}
 	}
 
 	// Build qri binary
@@ -236,9 +246,22 @@ func ensureGoEnvVars() error {
 		return err
 	}
 
-	// TODO(dlong): Switch to regex, and compare against minimum version
-	if !strings.Contains(output, RequiredGoVersion) {
-		return fmt.Errorf("")
+	// strip off output prefix from go version
+	output = strings.TrimPrefix(output, "go version go")
+	// grab version numbers
+	output = strings.Split(output, " ")[0]
+	// rediculous need for patch suffix. why is software terrible
+	if strings.Count(output, ".") == 1 {
+		output += ".0"
+	}
+
+	goVersion, err := semver.Make(output)
+	if err != nil {
+		return fmt.Errorf("invalid output from 'go version': %s\noutput:%s", err, output)
+	}
+
+	if !MinRequiredGoVersion.LTE(goVersion) {
+		return fmt.Errorf("go version %s is below minimum required version: %s", goVersion.String(), MinRequiredGoVersion.String())
 	}
 
 	value := os.Getenv("GO111MODULE")
