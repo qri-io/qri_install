@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/blang/semver"
 	"github.com/spf13/cobra"
@@ -109,7 +110,7 @@ func DesktopBuildPackage(desktopPath, qriPath string, pullMaster bool, platforms
 	// Copy qri binary into desktop's backend/ folder
 	log.Infof("copying qri binary into desktop...")
 	// Work-around for Windows slashes, would be ignored by path.Base
-	targetBinName := path.Base(strings.Replace(builtPath, "\\", "/", -1))
+	targetBinName := path.Base(handleWinPath(builtPath))
 	if runtime.GOOS == "windows" {
 		// In Windows, make sure the binary ends in ".exe". If not, add the extension when
 		// copying it.
@@ -134,12 +135,28 @@ func DesktopBuildPackage(desktopPath, qriPath string, pullMaster bool, platforms
 	err = buildDesktopApp(desktopPath)
 
 	// Find built installer
-	release, err := discoverDesktopInstaller(desktopPath)
+	builtDesktopInstaller, err := discoverDesktopInstaller(desktopPath)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Release installer at: %s", release)
+	// Path to copy the installer to
+	finalPath := "output"
+	if _, err := os.Stat(finalPath); os.IsNotExist(err) {
+		if err := os.Mkdir(finalPath, os.ModePerm); err != nil {
+			return err
+		}
+	}
+
+	// Copy the installer
+	basename := path.Base(handleWinPath(builtDesktopInstaller))
+	releaseTarget := filepath.Join(finalPath, basename)
+	err = CopyFile(builtDesktopInstaller, releaseTarget)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Release installer at: %s\n", releaseTarget)
 	return nil
 }
 
@@ -168,8 +185,7 @@ func buildQriBinary(projectPath string) (string, error) {
 	targetBinPath := filepath.Join(buildPath, "qri")
 
 	if _, err := os.Stat(buildPath); os.IsNotExist(err) {
-		err := os.Mkdir(buildPath, os.ModePerm)
-		if err != nil {
+		if err := os.Mkdir(buildPath, os.ModePerm); err != nil && !os.IsNotExist(err) {
 			return "", err
 		}
 	}
@@ -213,27 +229,26 @@ func buildDesktopApp(path string) error {
 }
 
 func discoverDesktopInstaller(path string) (string, error) {
-	path = filepath.Join(path, "release")
-	finfos, err := ioutil.ReadDir(path)
+	releaseDirPath := filepath.Join(path, "release")
+	finfos, err := ioutil.ReadDir(releaseDirPath)
 	if err != nil {
 		return "", err
 	}
-	found := []string{}
+	var latestMtime time.Time
+	var latestFilename string
 	for _, fi := range finfos {
-		if strings.HasSuffix(fi.Name(), ".exe") {
-			found = append(found, filepath.Join(path, fi.Name()))
+		if strings.HasSuffix(fi.Name(), ".exe") || strings.HasSuffix(fi.Name(), ".dmg") {
+			if fi.ModTime().After(latestMtime) {
+				latestFilename = filepath.Join(releaseDirPath, fi.Name())
+				latestMtime = fi.ModTime()
+			}
 		}
-		if strings.HasSuffix(fi.Name(), ".dmg") {
-			found = append(found, filepath.Join(path, fi.Name()))
-		}
 	}
-	if len(found) == 0 {
-		return "", fmt.Errorf("no built installer found")
+
+	if latestFilename == "" {
+		return "", fmt.Errorf("installer not found at \"%s\"", releaseDirPath)
 	}
-	if len(found) > 1 {
-		return "", fmt.Errorf("found multiple installers: %s", strings.Join(found, ", "))
-	}
-	return found[0], nil
+	return latestFilename, nil
 }
 
 func ensureGoEnvVars() error {
@@ -301,6 +316,11 @@ func doGitPull(path string) error {
 		Dir:    path,
 	}
 	return cmd.Run()
+}
+
+// handleWinPath converts back slashes to forward slashes to handle Windows paths
+func handleWinPath(dir string) string {
+	return strings.Replace(dir, "\\", "/", -1)
 }
 
 // CopyFile copies a file from "from" to "to"
