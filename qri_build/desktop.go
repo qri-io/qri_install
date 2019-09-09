@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -109,8 +108,7 @@ func DesktopBuildPackage(desktopPath, qriPath string, pullMaster bool, platforms
 
 	// Copy qri binary into desktop's backend/ folder
 	log.Infof("copying qri binary into desktop...")
-	// Work-around for Windows slashes, would be ignored by path.Base
-	targetBinName := path.Base(handleWinPath(builtPath))
+	targetBinName := filepath.Base(builtPath)
 	if runtime.GOOS == "windows" {
 		// In Windows, make sure the binary ends in ".exe". If not, add the extension when
 		// copying it.
@@ -149,7 +147,7 @@ func DesktopBuildPackage(desktopPath, qriPath string, pullMaster bool, platforms
 	}
 
 	// Copy the installer
-	basename := path.Base(handleWinPath(builtDesktopInstaller))
+	basename := filepath.Base(builtDesktopInstaller)
 	releaseTarget := filepath.Join(finalPath, basename)
 	err = CopyFile(builtDesktopInstaller, releaseTarget)
 	if err != nil {
@@ -316,11 +314,6 @@ func doGitPull(path string) error {
 		Dir:    path,
 	}
 	return cmd.Run()
-}
-
-// handleWinPath converts back slashes to forward slashes to handle Windows paths
-func handleWinPath(dir string) string {
-	return strings.Replace(dir, "\\", "/", -1)
 }
 
 // CopyFile copies a file from "from" to "to"
