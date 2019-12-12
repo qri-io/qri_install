@@ -98,8 +98,14 @@ TODO(dlong): Elaborate on this documentation
 
 ## Qri backend command-line
 
-`qri_build qri --qri ${GOPATH}/src/github.com/qri-io/qri`
+```
+cd ${GOPATH}/src/github.com/qri-io/qri_install
+qri_build qri --qri ${GOPATH}/src/github.com/qri-io/qri \
+ --templates qri_build/templates \
+ --platforms darwin,linux,windows \
+ --arches 386,amd64,arm
+```
 
-outputs to qri_darwin_amd64.zip
+outputs to current directory as qri_darwin_amd64.zip, etc
 
 TODO(dlong): Document cross-compilation
