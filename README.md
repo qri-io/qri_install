@@ -35,12 +35,10 @@ TODO(dlong): Where do build output artifacts go to?
    `conventional-changelog -p angular -i CHANGELOG.md -s`
 
    This will auto generate a changelog against the previous version. CHANGELOG.md is the input file, and the `-s` flag indicates we should append to the beginning of the changelog, not save over the file
-  
+
 3. Draft a set of release notes, add these to the beginning of the CHANGELOG.md file, following the format that has already been established
 
-4. Create a PR using the title `chore(release): release vX.X.X`
-
-5. Get feedback and merge the PR
+4. Commit the changelog in this format: `chore(changelog): add X.X.X release notes`
 
 ## Electron
 
