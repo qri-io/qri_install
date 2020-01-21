@@ -42,6 +42,8 @@ TODO(dlong): Where do build output artifacts go to?
 
 ## Electron
 
+# <span style="color:red;">This is deprecated. TODO(dlong): Add steps for Qri Desktop</span>
+
 *To build the electron Qri.app:*
 
 `qri_build electron --frontend ${GOPATH}/src/github.com/qri-io/frontend --qri ${GOPATH}/src/github.com/qri-io/qri`
@@ -57,42 +59,6 @@ TODO(dlong): Should we support building just the electron app without the backen
 This builds a dmg installer including the app, signs it with developer credentials, and pushes it to github as a draft release.
 
 Be aware that the process will need access to your keychain, you may need to input your password for each time you have to sign a different part of the application.
-
-## Webapp
-
-The webapp has two varieties. The "standard fallback webapp" and the "publically accessible app.qri.io".
-
-### Standard fallback webapp
-
-`qri_build webapp --frontend ${GOPATH}/src/github.com/qri-io/frontend`
-
-This complies the webapp as a js blob. The command prints the api-url, usually something like http://localhost:2503
-
-*To push this build to IPFS*
-
-`qri_build webapp --frontend ${GOPATH}/src/github.com/qri-io/frontend --ipfs`
-
-__How the fallback app works__
-
-When a user runs `qri connect`, the application looks for a new version of the fallback app on ipfs. It does this by resolving the address "/ipns/webapp" (by default) to get an ipfs hash, then downloads the js blob at that hash. Note that, even though this address looks like it is using ipns, we do a normal dns lookup.
-
-The address to resolve is in the config.yaml as `webapp.entrypointupdateaddress` and the resolved ipfs hash is saved as 'webapp.entrypointhash`.
-
-If the fallback app is not working, make sure the config.yaml has `webapp.enabled` set to true.
-
-### publicly accessible app.qri.io
-
-`qri_build webapp --frontend ~/frontend --ipfs --read-only --api-url https://api.qri.io`
-
-The webapp at app.qri.io runs with `--read-only` enabled, so that it only serves datasets, not creates them. The build flag `--api-url` sets the url used for api requests. It sets the env var `QRI_FRONTEND_BUILD_API_URL` for qri_build.
-
-### building a non-minified webapp
-
-Meant only for debugging purposes
-
-Building is slow due to minification -> comment out MinifyPlugin
-
-TODO(dlong): Elaborate on this documentation
 
 ## Qri backend command-line
 
