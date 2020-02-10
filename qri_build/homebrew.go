@@ -99,14 +99,14 @@ func HomebrewBuildInstaller(srcPath, zipFile string, ignoreDevRestriction bool) 
 	zipBasename := path.Base(zipFile)
 
 	// Read the sourcefile that contains the current version number.
-	libSourcefile := filepath.Join(srcPath, "lib/lib.go")
+	libSourcefile := filepath.Join(srcPath, "version/version.go")
 	data, err = ioutil.ReadFile(libSourcefile)
 	if err != nil {
 		return err
 	}
 	codeText := string(data)
 	// Parse the version number from the sourcefile.
-	versionLine, err := grep(codeText, "const VersionNumber")
+	versionLine, err := grep(codeText, "const String")
 	if err != nil {
 		return err
 	}
