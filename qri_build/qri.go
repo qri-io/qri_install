@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"fmt"
+	"time"
 	"io"
 	"os"
 	"path/filepath"
@@ -20,7 +21,6 @@ var QriCmd = &cobra.Command{
 	Use:   "qri",
 	Short: "build the qri go binary",
 	Run: func(cmd *cobra.Command, args []string) {
-		// log.Debugf("\n\tbuild: %s\n\tarches: %s\n\tplatforms: %s\n\trepoPath: %s\n\tfrontendPath: %s\n\ttemplatesPath: %s\n", args[0], arches, platforms, repoPath, frontendPath, templatesPath)
 
 		arches, err := cmd.Flags().GetStringSlice("arches")
 		if err != nil {
@@ -46,6 +46,8 @@ var QriCmd = &cobra.Command{
 			return
 		}
 
+		log.Debugf("\n\tbuild qri zip.\n\tarches: %s\n\tplatforms: %s\n\trepoPath: %s\n\ttemplatesPath: %s\n", arches, platforms, repoPath, templatesPath)
+
 		var wg sync.WaitGroup
 		for _, arch := range arches {
 			for _, platform := range platforms {
@@ -70,7 +72,7 @@ func init() {
 }
 
 // BuildQriZip constructs a zip archive from a qri binary with a
-// templated readmoe
+// templated readme
 func BuildQriZip(platform, arch, qriRepoPath, templatesPath string) (err error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -102,6 +104,7 @@ func buildDir(platform, arch string) string {
 // BuildQri runs a build of the qri using the specified operating
 // system and architecture
 func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
+	created := time.Now()
 	dirName := buildDir(platform, arch)
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -172,7 +175,15 @@ func ZipQriBuild(platform, arch, templatesPath string) (err error) {
 
 	zw := zip.NewWriter(f)
 
-	binw, err := zw.Create(binName)
+	binFileHeader := &zip.FileHeader{
+		Name: binName,
+		Modified: created,
+
+		CreatorVersion: (3 << 8), // indicate a unix-style zip creator version
+		ExternalAttrs: (0777 << 16), // set permisisons to 0777
+	}
+
+	binw, err := zw.CreateHeader(binFileHeader)
 	if err != nil {
 		log.Errorf("creating zip bin: %s", err)
 		return
@@ -192,7 +203,15 @@ func ZipQriBuild(platform, arch, templatesPath string) (err error) {
 		log.Infof("parsing templates: %s", err)
 		return
 	}
-	readmew, err := zw.Create("readme.md")
+
+	readmeHeader := &zip.FileHeader{
+		Name: "readme.md",
+		Modified: created,
+
+		CreatorVersion: (3 << 8), // indicate a unix-style zip creator version
+		ExternalAttrs: (0644 << 16), // set permisisons
+	}
+	readmew, err := zw.CreateHeader(readmeHeader)
 	if err != nil {
 		log.Infof("create readme file: %s", err.Error())
 		return
