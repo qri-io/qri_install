@@ -71,5 +71,3 @@ qri_build qri --qri ${GOPATH}/src/github.com/qri-io/qri \
 ```
 
 outputs to current directory as qri_darwin_amd64.zip, etc
-
-TODO(dlong): Document cross-compilation
