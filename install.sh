@@ -1,7 +1,4 @@
-#!/bin/sh
-# Copyright 2019 the Deno authors. All rights reserved. MIT license.
-#
-# This script is adapted from the qri project's qri_install repo:
+# This script is adapted from the deno project's deno_install repo:
 # https://github.com/qri-io/qri_install/blob/master/install.sh
 # Deno is a great project, you should check it out.
 
@@ -43,7 +40,7 @@ if [ ! -d "$bin_dir" ]; then
 	mkdir -p "$bin_dir"
 fi
 
-curl -fL# -o "$exe.zip" "$qri_uri"
+curl --fail --location --progress-bar --output "$exe.zip" "$qri_uri"
 unzip -d "$bin_dir" "$exe.zip"
 chmod +x "$exe"
 rm "$bin_dir/readme.md" "$exe.zip"
