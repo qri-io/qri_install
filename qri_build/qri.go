@@ -3,13 +3,13 @@ package main
 import (
 	"archive/zip"
 	"fmt"
-	"time"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 	"text/template"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -133,7 +133,7 @@ func BuildQri(platform, arch, qriRepoPath string) (path string, err error) {
 	os.Chdir(qriRepoPath)
 
 	build := command{
-		String: "go build -o %s",
+		String: "make build -o %s",
 		Tmpl: []interface{}{
 			relBinPath,
 		},
@@ -169,11 +169,11 @@ func ZipQriBuild(platform, arch string) (err error) {
 	zw := zip.NewWriter(f)
 
 	binFileHeader := &zip.FileHeader{
-		Name: binName,
+		Name:     binName,
 		Modified: created,
 
-		CreatorVersion: (3 << 8), // indicate a unix-style zip creator version
-		ExternalAttrs: (0777 << 16), // set permisisons to 0777
+		CreatorVersion: (3 << 8),     // indicate a unix-style zip creator version
+		ExternalAttrs:  (0777 << 16), // set permisisons to 0777
 	}
 
 	binw, err := zw.CreateHeader(binFileHeader)
@@ -198,11 +198,11 @@ func ZipQriBuild(platform, arch string) (err error) {
 	}
 
 	readmeHeader := &zip.FileHeader{
-		Name: "readme.md",
+		Name:     "readme.md",
 		Modified: created,
 
-		CreatorVersion: (3 << 8), // indicate a unix-style zip creator version
-		ExternalAttrs: (0644 << 16), // set permisisons
+		CreatorVersion: (3 << 8),     // indicate a unix-style zip creator version
+		ExternalAttrs:  (0644 << 16), // set permisisons
 	}
 	readmew, err := zw.CreateHeader(readmeHeader)
 	if err != nil {
@@ -228,7 +228,6 @@ func CleanupQriBuild(platform, arch string) (err error) {
 
 	return os.RemoveAll(path)
 }
-
 
 const qriCLIReadmeTemplate = `# Qri CLI
 
